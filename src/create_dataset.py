@@ -16,25 +16,32 @@ def fetch_credits(row) -> tuple[int, str, str]:
     if pd.isna(tmdb_id):
         return movie_id, "", ""
 
-    url = f"https://api.themoviedb.org/3/movie/{int(tmdb_id)}/credits"
+    url_credits = f"https://api.themoviedb.org/3/movie/{int(tmdb_id)}/credits"
+    url_details = f"https://api.themoviedb.org/3/movie/{int(tmdb_id)}"
+    
     try:
-        r = requests.get(url, headers=headers, timeout=10)
-        if r.status_code == 200:
-            credits = r.json()
+        r_credits = requests.get(url_credits, headers=headers, timeout=10)
+        r_details = requests.get(url_details, headers=headers, timeout=10)
+
+        if r_credits.status_code == 200 and r_details.status_code == 200:
+            credits = r_credits.json()
+            details = r_details.json()
 
             cast = credits.get("cast", [])
             crew = credits.get("crew", [])
+            genres = details.get("genres", [])
 
             actors = [
                 a["name"] for a in cast if a.get("known_for_department") == "Acting"
             ]
             directors = [m["name"] for m in crew if m.get("job") == "Director"]
+            genres_list = [g["name"] for g in genres]
 
-            return movie_id, "|".join(actors), "|".join(directors)
+            return movie_id, "|".join(actors), "|".join(directors), "|".join(genres_list)
         else:
-            return movie_id, "", ""
+            return movie_id, "", "", ""
     except Exception as e:
-        return movie_id, "", ""
+        return movie_id, "", "", ""
 
 
 actors_map = {}
