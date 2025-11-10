@@ -1,56 +1,59 @@
-import torch
-from torch_geometric.data import HeteroData, Dataset
 import pandas as pd
-from tqdm import tqdm
+import torch
+from torch_geometric.data import HeteroData
+from torch_geometric.transforms import RandomLinkSplit
 
-class UserMovieGraphDataset(Dataset):
-    def __init__(self, config, transform=None, pre_transform=None):
-        super().__init__(None, transform, pre_transform)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.ratings = pd.read_csv(config["ratings_path"])
-        self.movies = pd.read_csv(config["movies_path"])
+ratings = pd.read_csv("../data/ratings_cleaned.csv")
+movies = pd.read_csv("../data/movies_enriched_cleaned.csv")
 
-        self.user_id_map = {
-            uid: i for i, uid in enumerate(self.ratings["userId"].unique())
-        }
-        self.movie_id_map = {
-            mid: i for i, mid in enumerate(self.movies["movieId"].unique())
-        }
+unique_users = ratings["userId"].unique()
+unique_movies = ratings["movieId"].unique()
 
-        genres = self.movies['genres'].str.get_dummies('|').values
-        overview_embeds = torch.load(config["overview_embeddings_path"], map_location='cpu')
-        movie_features = torch.cat([torch.tensor(genres, dtype=torch.float), overview_embeds], dim=1)
+user2idx = {uid: i for i, uid in enumerate(unique_users)}
+movie2idx = {mid: i for i, mid in enumerate(unique_movies)}
 
-        self.movie_features = movie_features
-        self.user_groups = self.ratings.groupby("userId")
+ratings["user_idx"] = ratings["userId"].map(user2idx)
+ratings["movie_idx"] = ratings["movieId"].map(movie2idx)
 
-    def len(self):
-        return len(self.user_groups)
 
-    def get(self, idx):
-        user_id = list(self.user_groups.groups.keys())[idx]
-        user_mapped = self.user_id_map[user_id]
+genre_features = movies["genres"].str.get_dummies("|").values
+genre_features = torch.tensor(genre_features, dtype=torch.float, device=device)
 
-        user_data = self.user_groups.get_group(user_id)
+overview_embeds = torch.load("../data/overview_embeddings.pt", map_location=device)
 
-        movie_ids = user_data["movieId"].map(self.movie_id_map).values
-        movie_ids = torch.tensor(movie_ids, dtype=torch.long)
+movie_features = torch.cat([genre_features, overview_embeds], dim=1)
 
-        data = HeteroData()
+data = HeteroData()
 
-        data["user"].x = torch.ones(1, 1)
+num_users = len(user2idx)
+data["user"].x = torch.zeros((num_users, 1))
 
-        data["movie"].x = self.movie_features[movie_ids]
+data["movie"].x = movie_features
 
-        num_movies = len(movie_ids)
-        edge_index = torch.stack([
-            torch.zeros(num_movies, dtype=torch.long),
-            torch.arange(num_movies, dtype=torch.long)
-        ], dim=0)
+edge_index_user_to_movie = torch.stack(
+    [
+        torch.tensor(ratings["user_idx"].values, dtype=torch.int32),
+        torch.tensor(ratings["movie_idx"].values, dtype=torch.int32),
+    ]
+)
 
-        data["user", "rates", "movie"].edge_index = edge_index
+data["user", "rates", "movie"].edge_index = edge_index_user_to_movie
 
-        ratings = torch.tensor(user_data["rating"].values, dtype=torch.float)
-        data["user", "rates", "movie"].edge_attr = ratings.unsqueeze(1)
+ratings_tensor = torch.tensor(ratings["rating"].values, dtype=torch.float16).unsqueeze(
+    1
+)
+data["user", "rates", "movie"].edge_attr = ratings_tensor
 
-        return data
+transform = RandomLinkSplit(
+    num_val=0.1,
+    num_test=0.1,
+    disjoint_train_ratio=0.3,
+    neg_sampling_ratio=2.0,
+    add_negative_train_samples=False,
+    edge_types=("user", "rates", "movie"),
+    rev_edge_types=("movie", "rev_rates", "user"),
+)
+
+train_data, val_data, test_data = transform(data)
