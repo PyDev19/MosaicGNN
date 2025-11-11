@@ -13,8 +13,8 @@ def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
     else:
         print("Loading csv files...")
 
-        ratings = pd.read_csv("data/ratings_cleaned.csv")
-        movies = pd.read_csv("data/movies_enriched_cleaned.csv")
+        ratings = pd.read_csv(f"{data_dir}/ratings_cleaned.csv")
+        movies = pd.read_csv(f"{data_dir}/movies_enriched_cleaned.csv")
 
         unique_users = ratings["userId"].unique()
         unique_movies = ratings["movieId"].unique()
@@ -30,7 +30,7 @@ def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
 
         print("Loading overview embeddings...")
 
-        overview_embeds = torch.load("data/overview_embeddings.pt", map_location=device)
+        overview_embeds = torch.load(f"{data_dir}/overview_embeddings.pt", map_location=device)
 
         movie_features = torch.cat([genre_features, overview_embeds], dim=1)
 
