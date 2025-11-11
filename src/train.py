@@ -1,12 +1,40 @@
-from dataset import train_data, val_data, test_data
-from torch_geometric.loader import LinkNeighborLoader
 import torch
+from dataset import get_dataset
+from model import MosaicGNN
+from torch_geometric.loader import LinkNeighborLoader
 from torch.nn import MSELoss
 from torch.optim import Adam
-from model import MosaicGNN
+from torch_geometric.transforms import RandomLinkSplit
 from tqdm import tqdm
 
-print('Setting up data loaders...')
+data_dir = "data/"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+config = {
+    "data_directory": "data/",
+    "dataset": {
+        "val_ratio": 0.1,
+        "test_ratio": 0.1,
+        "disjoint_train_ratio": 0.3,
+        "neg_sampling_ratio": 2.0,
+        "add_negative_train_samples": False,
+        "is_undirected": True,
+    }
+}
+
+dataset = get_dataset(config["data_directory"], device)
+
+print("Splitting data into train, val, and test sets...")
+
+transform = RandomLinkSplit(
+    **config["dataset"],
+    edge_types=("user", "rates", "movie"),
+    rev_edge_types=("movie", "rev_rates", "user"),
+)
+
+train_data, val_data, test_data = transform(dataset)
+
+print("Setting up data loaders...")
 train_loader = LinkNeighborLoader(
     data=train_data,
     num_neighbors=[20, 10],
@@ -44,24 +72,23 @@ test_loader = LinkNeighborLoader(
     shuffle=False,
 )
 
-print('Initializing model, optimizer, and loss function...')
+print("Initializing model, optimizer, and loss function...")
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = MosaicGNN(200948, 85198, 403, hidden_channels=64).to(device)
 optimizer = Adam(model.parameters(), lr=1e-3)
 criterion = MSELoss()
 
-print('Starting training loop...')
+print("Starting training loop...")
 
 for batch in tqdm(train_loader, desc="Training", leave=True):
     batch = batch.to(device)
     print(batch)
     pred = model(batch)
-    
+
     loss = criterion(pred.view(-1), batch["user", "rates", "movie"].edge_label.float())
     optimizer.zero_grad()
-    
+
     loss.backward()
     optimizer.step()
-    
+
     tqdm.write(f"Loss: {loss.item():.4f}")
