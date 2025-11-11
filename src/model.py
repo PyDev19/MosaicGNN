@@ -56,7 +56,7 @@ class EdgeDecoder(Module):
         return x
 
 class MosaicGNN(Module):
-    def __init__(self, num_users, num_movies, movie_feat_dim, hidden_channels=64):
+    def __init__(self, num_users=100, num_movies=100, movie_feat_dim=128, hidden_channels=64):
         super().__init__()
         self.embed = NodeEmbeddings(num_users, num_movies, hidden_channels, movie_feat_dim)
         self.gnn = GNNEncoder(hidden_channels)

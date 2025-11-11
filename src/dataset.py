@@ -8,7 +8,7 @@ from torch_geometric.transforms import ToUndirected
 def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
     if os.path.exists(f"{data_dir}/graph.pt"):
         print("Loading processed graph data...")
-        dataset = torch.load(f"{data_dir}/graph.pt", map_location=device)
+        dataset = torch.load(f"{data_dir}/graph.pt", map_location=device, weights_only=False)
         return dataset
     else:
         print("Loading csv files...")
