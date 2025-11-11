@@ -1,4 +1,5 @@
 data_directory: data/
+num_epochs: 50
 dataset:
     add_negative_train_samples: false
     disjoint_train_ratio: 0.3

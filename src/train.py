@@ -64,14 +64,29 @@ criterion = MSELoss()
 
 print("Starting training loop...")
 
-for batch in tqdm(train_loader, desc="Training", leave=True):
-    batch = batch.to(device)
-    pred = model(batch)
+num_epochs = config['num_epochs']
+for epoch in range(1, num_epochs + 1):
+    model.train()
+    total_loss = 0.0
 
-    loss = criterion(pred.view(-1), batch["user", "rates", "movie"].edge_label.float())
-    optimizer.zero_grad()
+    with tqdm(train_loader, desc=f"Epoch {epoch}/{num_epochs}", leave=False) as pbar:
+        for batch in pbar:
+            batch = batch.to(device)
 
-    loss.backward()
-    optimizer.step()
+            pred = model(batch)
+            loss = criterion(
+                pred.view(-1),
+                batch["user", "rates", "movie"].edge_label.float()
+            )
 
-    tqdm.write(f"Loss: {loss.item():.4f}")
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+            pbar.set_postfix({"batch_loss": f"{loss.item():.4f}"})
+
+    avg_loss = total_loss / len(train_loader)
+    print(f"Epoch {epoch:03d} | Avg Train Loss: {avg_loss:.4f}")
+
+torch.save(model.state_dict(), "mosaic_gnn_model.pth")
