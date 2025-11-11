@@ -62,5 +62,5 @@ def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
         data = ToUndirected()(data)
         
         print("Saving processed graph data...")
-        torch.save(data, f"{data_dir}/graph.pt")
+        # torch.save(data, f"{data_dir}/graph.pt")
         
