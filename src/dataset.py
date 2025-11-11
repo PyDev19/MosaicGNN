@@ -7,6 +7,7 @@ from torch_geometric.transforms import ToUndirected
 
 def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
     if os.path.exists(f"{data_dir}/graph.pt"):
+        print("Loading processed graph data...")
         dataset = torch.load(f"{data_dir}/graph.pt", map_location=device)
         return dataset
     else:
@@ -59,3 +60,7 @@ def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
         data["user", "rates", "movie"].edge_attr = ratings_tensor
 
         data = ToUndirected()(data)
+        
+        print("Saving processed graph data...")
+        torch.save(data, f"{data_dir}/graph.pt")
+        
