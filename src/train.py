@@ -7,6 +7,7 @@ from torch.nn import MSELoss
 from torch.optim import Adam
 from torch_geometric.transforms import RandomLinkSplit
 from tqdm import tqdm
+from validate import evaluate
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -65,6 +66,7 @@ criterion = MSELoss()
 print("Starting training loop...")
 
 num_epochs = config['num_epochs']
+losses = []
 for epoch in range(1, num_epochs + 1):
     model.train()
     total_loss = 0.0
@@ -87,6 +89,20 @@ for epoch in range(1, num_epochs + 1):
             pbar.set_postfix({"batch_loss": f"{loss.item():.4f}"})
 
     avg_loss = total_loss / len(train_loader)
-    print(f"Epoch {epoch:03d} | Avg Train Loss: {avg_loss:.4f}")
+    losses.append(avg_loss)
+    
+    if epoch > 1 and avg_loss <= min(losses):
+        torch.save(model.state_dict(), f"mosaic_gnn_epoch{epoch}.pth")
+    
+    if epoch % 5 == 0 or epoch == num_epochs:
+        val_auc, val_ap = evaluate(model, val_loader, device)
+        print(f"Epoch {epoch:03d} | Train Loss: {avg_loss:.4f} | Val AUC: {val_auc:.4f} | Val AP: {val_ap:.4f}")
+    else:
+        print(f"Epoch {epoch:03d} | Train Loss: {avg_loss:.4f}")
 
-torch.save(model.state_dict(), "mosaic_gnn_model.pth")
+
+test_auc, test_ap = evaluate(model, test_loader, device)
+print(f"Test AUC: {test_auc:.4f} | Test AP: {test_ap:.4f}")
+
+torch.save(model.state_dict(), "mosaic_gnn.pth")
+

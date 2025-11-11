@@ -2,3 +2,4 @@ env
 *.ipynb
 data
 __pycache__
+*.pth
