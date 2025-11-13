@@ -1,5 +1,5 @@
 data_directory: /kaggle/input/movie-lens-32m
-num_epochs: 50
+num_epochs: 10
 dataset:
     add_negative_train_samples: false
     disjoint_train_ratio: 0.3
