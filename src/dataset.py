@@ -53,7 +53,7 @@ def get_dataset(data_dir: str, device: torch.device) -> HeteroData:
         data["user", "rates", "movie"].edge_index = edge_index_user_to_movie
 
         ratings_tensor = (
-            torch.tensor(ratings["rating"].values, dtype=torch.float16)
+            torch.tensor(ratings["rating"].values, dtype=torch.float32)
             .unsqueeze(1)
             .to(device)
         )
