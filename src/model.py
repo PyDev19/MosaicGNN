@@ -20,7 +20,7 @@ class NodeEmbeddings(Module):
         return x_dict
 
 
-class GNNEncoder(Module):
+class SAGE_Encoder(Module):
     def __init__(self, hidden_channels, dropout=0.3):
         super().__init__()
         self.conv1 = HeteroConv(
@@ -69,7 +69,7 @@ class EdgeDecoder(Module):
         return x
 
 
-class MosaicGNN(Module):
+class NOVA_GNN(Module):
     def __init__(
         self,
         num_users=100,
@@ -82,7 +82,7 @@ class MosaicGNN(Module):
         self.embed = NodeEmbeddings(
             num_users, num_movies, hidden_channels, movie_feat_dim, dropout
         )
-        self.gnn = GNNEncoder(hidden_channels, dropout)
+        self.gnn = SAGE_Encoder(hidden_channels, dropout)
         self.decoder = EdgeDecoder(hidden_channels)
 
     def forward(self, data):
