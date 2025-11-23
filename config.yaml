@@ -1,5 +1,7 @@
-data_directory: data/
-num_epochs: 50
+trainer:
+    num_epochs: 50
+    log_dir: "results/logs"
+    mixed_precision: false
 dataset:
     add_negative_train_samples: true
     disjoint_train_ratio: 0.3
@@ -23,7 +25,6 @@ loader:
 model:
     hidden_channels: 128
     movie_feat_dim: 403
-    num_movies: 85198
     num_users: 200948
     dropout: 0.15
 optimizer:
@@ -35,8 +36,7 @@ scheduler:
     patience: 3
     threshold: 0.00001
     min_lr: 0.0000001
-    verbose: true
 early_stopping:
     patience: 8
     min_delta: 0.0001
-    path: results/best_model.pth
+    best_model_path: "results/best_model.pth"
