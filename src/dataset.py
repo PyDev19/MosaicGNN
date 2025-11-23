@@ -7,10 +7,12 @@ from torch_geometric.loader import LinkNeighborLoader
 
 
 class RecommenderDataModule:
-    def __init__(self, config: dict):
-        self.config = config
+    def __init__(self, data_dir: str, dataset_config: dict, loader_config: dict):
+        self.dataset_config = dataset_config
+        self.loader_config = loader_config
+        
         self.device = torch.device("cpu")
-        self.data_dir = config["data_directory"]
+        self.data_dir = data_dir
 
         self.dataset = None
         self.train_data = None
@@ -94,7 +96,7 @@ class RecommenderDataModule:
         print("Splitting dataset...")
 
         transform = RandomLinkSplit(
-            **self.config["dataset"],
+            **self.dataset_config,
             edge_types=("user", "rates", "movie"),
             rev_edge_types=("movie", "rev_rates", "user"),
         )
@@ -115,7 +117,7 @@ class RecommenderDataModule:
         print("Preparing train data loader...")
 
         train_loader = LinkNeighborLoader(
-            **self.config["loader"]["train"],
+            **self.loader_config["train"],
             data=self.train_data,
             edge_label_index=(
                 ("user", "rates", "movie"),
@@ -130,7 +132,7 @@ class RecommenderDataModule:
         print("Preparing validation data loader...")
 
         val_loader = LinkNeighborLoader(
-            **self.config["loader"]["val_test"],
+            **self.loader_config["val_test"],
             data=self.val_data,
             edge_label_index=(
                 ("user", "rates", "movie"),
@@ -145,7 +147,7 @@ class RecommenderDataModule:
         print("Preparing test data loader...")
 
         test_loader = LinkNeighborLoader(
-            **self.config["loader"]["val_test"],
+            **self.loader_config["val_test"],
             data=self.test_data,
             edge_label_index=(
                 ("user", "rates", "movie"),
