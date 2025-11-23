@@ -12,13 +12,13 @@ loader:
         batch_size: 1024
         neg_sampling_ratio: 3.0
         num_neighbors:
-        - 15
-        - 10
+            - 15
+            - 10
         shuffle: true
     val_test:
         batch_size: 2048
         num_neighbors:
-        - -1
+            - -1
         shuffle: false
 model:
     hidden_channels: 128
@@ -27,12 +27,16 @@ model:
     num_users: 200948
     dropout: 0.15
 optimizer:
-    lr: 1e-03
-    weight_decay: 1e-04
+    lr: 0.0001
+    weight_decay: 0.00001
 scheduler:
-    mode: 'max'
+    mode: "max"
     factor: 0.5
     patience: 3
-    threshold: 1e-04
-    min_lr: 1e-06
+    threshold: 0.00001
+    min_lr: 0.0000001
     verbose: true
+early_stopping:
+    patience: 8
+    min_delta: 0.0001
+    path: results/best_model.pth
