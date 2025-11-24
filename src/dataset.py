@@ -6,7 +6,7 @@ from torch_geometric.transforms import ToUndirected, RandomLinkSplit
 from torch_geometric.loader import LinkNeighborLoader
 
 
-class RecommenderDataModule:
+class NovaDataModule:
     def __init__(self, data_dir: str, dataset_config: dict, loader_config: dict):
         self.dataset_config = dataset_config
         self.loader_config = loader_config
