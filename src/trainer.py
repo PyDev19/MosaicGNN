@@ -76,6 +76,12 @@ class NovaTrainer:
             torch.nn.utils.clip_grad_norm_(self.model_module.parameters(), 2.0)
             self.model_module.optimizer.step()
 
+        self.logger.log(
+            "train/batch_loss",
+            loss.item(),
+            self.model_module.optimizer.state.get("step", 0),
+        )
+
         return loss.item()
 
     def train(self):
