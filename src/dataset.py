@@ -10,7 +10,7 @@ class RecommenderDataModule:
     def __init__(self, data_dir: str, dataset_config: dict, loader_config: dict):
         self.dataset_config = dataset_config
         self.loader_config = loader_config
-        
+
         self.device = torch.device("cpu")
         self.data_dir = data_dir
 
@@ -51,11 +51,8 @@ class RecommenderDataModule:
 
         data = HeteroData()
 
-        num_users = len(user2idx)
-        data["user"].x = torch.zeros(
-            (num_users, 1), dtype=torch.float, device=self.device
-        )
-
+        data["user"].node_id = torch.arange(len(unique_users))
+        data["movie"].node_id = torch.arange(len(unique_movies))
         data["movie"].x = movie_features.float().to(self.device)
 
         edge_index_user_to_movie = torch.stack(
@@ -66,13 +63,9 @@ class RecommenderDataModule:
         )
 
         data["user", "rates", "movie"].edge_index = edge_index_user_to_movie
-
-        ratings_tensor = (
-            torch.tensor(ratings["rating"].values, dtype=torch.float32)
-            .unsqueeze(1)
-            .to(self.device)
-        )
-        data["user", "rates", "movie"].edge_attr = ratings_tensor
+        
+        pos_edges = data["user", "rates", "movie"].edge_index
+        data["user", "rates", "movie"].edge_label = torch.ones(pos_edges.size(1), dtype=torch.long)
 
         data = ToUndirected()(data)
 
@@ -112,6 +105,15 @@ class RecommenderDataModule:
         )
 
         self.train_data, self.val_data, self.test_data = self._split_dataset()
+
+    def get_metadata(self) -> list:
+        return self.dataset.metadata()
+    
+    def get_user_nodes(self) -> int:
+        return self.dataset["user"].num_nodes
+    
+    def get_movie_nodes(self) -> int:
+        return self.dataset["movie"].num_nodes
 
     def get_train_loader(self) -> LinkNeighborLoader:
         print("Preparing train data loader...")
