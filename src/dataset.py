@@ -63,9 +63,6 @@ class NovaDataModule:
         )
 
         data["user", "rates", "movie"].edge_index = edge_index_user_to_movie
-        
-        pos_edges = data["user", "rates", "movie"].edge_index
-        data["user", "rates", "movie"].edge_label = torch.ones(pos_edges.size(1), dtype=torch.long)
 
         data = ToUndirected()(data)
 
