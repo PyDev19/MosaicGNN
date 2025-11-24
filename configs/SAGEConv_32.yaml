@@ -1,6 +1,6 @@
 trainer:
     num_epochs: 50
-    log_dir: "results/logs"
+    log_dir: "results/logs_32"
     mixed_precision: false
 dataset:
     add_negative_train_samples: false
@@ -11,23 +11,24 @@ dataset:
 loader:
     train:
         batch_size: 1024
-        neg_sampling_ratio: 3.0
+        neg_sampling_ratio: 2.0
         num_neighbors:
-            - 15
+            - 20
             - 10
         shuffle: true
     val_test:
         batch_size: 2048
         num_neighbors:
             - 20
+            - 10
         shuffle: false
 model:
-    hidden_channels: 64
+    hidden_channels: 32
     movie_feat_dim: 403
-    dropout: 0.15
+    dropout: 0.4
+    emb_dropout: 0.3
 optimizer:
-    lr: 0.0001
-    weight_decay: 0.00001
+    lr: 0.001
 scheduler:
     mode: "max"
     factor: 0.5
@@ -35,6 +36,6 @@ scheduler:
     threshold: 0.00001
     min_lr: 0.0000001
 early_stopping:
-    patience: 8
+    patience: 5
     min_delta: 0.0001
-    best_model_path: "results/best_model.pth"
+    best_model_path: "results/best_model_32.pth"
