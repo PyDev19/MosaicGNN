@@ -2,8 +2,8 @@ import torch
 from torch.nn import BCEWithLogitsLoss
 from tqdm import tqdm
 from torch.amp import autocast, GradScaler
-from dataset import RecommenderDataModule
-from model import RecommenderModelModule
+from dataset import NovaDataModule
+from model import NovaModelModule
 from utils import Metrics, TBLogger
 
 
@@ -17,8 +17,8 @@ class NovaTrainer:
         min_delta: float,
         best_model_path: str,
         device: torch.device,
-        data_module: RecommenderDataModule,
-        model_module: RecommenderModelModule,
+        data_module: NovaDataModule,
+        model_module: NovaModelModule,
     ):
         self.data_module = data_module
         self.model_module = model_module
@@ -41,14 +41,15 @@ class NovaTrainer:
             len(self.data_module.train_data["user", "rates", "movie"].edge_label) - pos
         )
         pos_weight = torch.tensor([neg / pos], device=self.device)
-        self.criterion = BCEWithLogitsLoss(pos_weight=pos_weight)
+        self.criterion = BCEWithLogitsLoss()
 
         self.train_loader = self.data_module.get_train_loader()
         self.valid_loader = self.data_module.get_val_loader()
         self.test_loader = self.data_module.get_test_loader()
-
-        sample_batch = next(iter(self.train_loader)).to(self.device)
-        self.logger.graph(self.model_module.model, sample_batch)
+        
+        self.global_step_train = 0
+        self.global_step_valid = 0
+        self.global_step_test = 0
 
     def _train_step(self, batch):
         batch = batch.to(self.device)
@@ -76,18 +77,15 @@ class NovaTrainer:
             torch.nn.utils.clip_grad_norm_(self.model_module.parameters(), 2.0)
             self.model_module.optimizer.step()
 
-        self.logger.log(
-            "train/batch_loss",
-            loss.item(),
-            self.model_module.optimizer.state.get("step", 0),
-        )
+        self.logger.log("train/batch_loss", loss.item(), self.global_step_train,)
+        self.global_step_train += 1
 
-        return loss.item()
+        return loss.item(), preds
 
     def train(self):
         for epoch in range(1, self.num_epochs + 1):
             self.model_module.model.train()
-            epoch_loss = 0.0
+            epoch_loss = epoch_examples = 0.0
 
             with tqdm(
                 self.train_loader,
@@ -95,16 +93,23 @@ class NovaTrainer:
                 leave=False,
             ) as pbar:
                 for batch in pbar:
-                    loss = self._train_step(batch)
-                    epoch_loss += loss
-                    pbar.set_postfix({"loss": f"{loss:.4f}"})
+                    loss, preds = self._train_step(batch)
+                    
+                    epoch_loss += float(loss) * preds.numel()
+                    epoch_examples += preds.numel()
+                    
+                    pbar.set_postfix({"loss": f"{loss:.6f}"})
 
-            avg_loss = epoch_loss / len(self.train_loader)
-            val_metrics = self.validate()
-
+            avg_loss = epoch_loss / epoch_examples
+            val_metrics, val_loss = self.validate()
+            
+            self.model_module.scheduler.step(val_metrics['ap'])
+            
+            self.logger.log("train/lr", self.model_module.scheduler.get_last_lr()[0], epoch)
             self.logger.log("train/loss", avg_loss, epoch)
             self.logger.log("val/auc", val_metrics["auc"], epoch)
             self.logger.log("val/ap", val_metrics["ap"], epoch)
+            self.logger.log("val/loss", val_loss, epoch)
 
             print(
                 f"Epoch {epoch:03d} | "
@@ -130,16 +135,19 @@ class NovaTrainer:
                     print("Early stopping triggered. Training stopped.")
                     break
 
-        test_metrics = self.validate(test=True)
+        test_metrics, test_loss = self.validate(test=True)
 
-        self.logger.log("test/auc", test_metrics["auc"], self.num_epochs + 1)
-        self.logger.log("test/ap", test_metrics["ap"], self.num_epochs + 1)
+        self.logger.log("test/auc", test_metrics["auc"], 0)
+        self.logger.log("test/ap", test_metrics["ap"], 0)
+        self.logger.log("test/loss", test_loss, 0)
         self.logger.close()
 
     @torch.no_grad()
     def validate(self, test: bool = False):
         self.model_module.model.eval()
         preds, labels = [], []
+        
+        total_loss = total_examples = 0.0
 
         with tqdm(
             self.valid_loader if not test else self.test_loader,
@@ -149,17 +157,32 @@ class NovaTrainer:
             for batch in pbar:
                 batch = batch.to(self.device)
 
-                pred = self.model_module.model(batch).view(-1).sigmoid().cpu()
+                pred = self.model_module.model(batch).view(-1)
+                label = batch["user", "rates", "movie"].edge_label.float()
+                loss = self.criterion(pred, label)
+                
+                total_loss += float(loss.item()) * pred.numel()
+                total_examples += pred.numel()
+                
+                if not test:
+                    self.logger.log("val/batch_loss", loss, self.global_step_valid)
+                    self.global_step_valid += 1
+                else:
+                    self.logger.log("test/batch_loss", loss, self.global_step_test)
+                    self.global_step_test += 1
 
-                label = batch["user", "rates", "movie"].edge_label.float().cpu()
-
+                pred = pred.sigmoid().cpu()
+                label = label.cpu()
+                
                 preds.append(pred.detach())
                 labels.append(label.detach())
 
         preds = torch.cat(preds).cpu()
         labels = torch.cat(labels).cpu()
+        
+        avg_loss = total_loss / total_examples
 
-        return Metrics.compute(preds, labels)
+        return Metrics.compute(preds, labels), avg_loss
 
     def save(self, path: str):
         torch.save(self.model_module.model.state_dict(), f"{path}/final_model.pt")
