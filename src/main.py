@@ -1,22 +1,29 @@
 import torch
 import yaml
-from dataset import RecommenderDataModule
-from model import RecommenderModelModule
-from trainer import Trainer
+from dataset import NovaDataModule
+from model import NovaModelModule
+from trainer import NovaTrainer
 
 DATA_DIR = "data/"
 
 config = yaml.safe_load(open("config.yaml", "r"))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-data_module = RecommenderDataModule(DATA_DIR, config["dataset"], config["loader"])
-model_module = RecommenderModelModule(
-    config["model"], config["optimizer"], config["scheduler"], device
-)
-
+data_module = NovaDataModule(DATA_DIR, config["dataset"], config["loader"])
 data_module.setup()
 
-gnn_trainer = Trainer(
+model_module = NovaModelModule(
+    config["model"],
+    config["optimizer"],
+    config["scheduler"],
+    device=device,
+    num_users=data_module.get_user_nodes(),
+    num_movies=data_module.get_movie_nodes(),
+    metadata=data_module.get_metadata(),
+)
+
+
+nova_trainer = NovaTrainer(
     **config["trainer"],
     **config["early_stopping"],
     device=device,
@@ -24,5 +31,5 @@ gnn_trainer = Trainer(
     model_module=model_module,
 )
 
-gnn_trainer.train()
-gnn_trainer.save("results")
+nova_trainer.train()
+nova_trainer.save("results")
