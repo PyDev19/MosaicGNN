@@ -17,7 +17,8 @@ class TBLogger:
 
     def log(self, key, value, step):
         self.writer.add_scalar(key, value, step)
-
+        self.writer.flush()
+        
     def close(self):
         self.writer.flush()
         self.writer.close()
