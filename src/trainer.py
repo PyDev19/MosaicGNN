@@ -42,10 +42,13 @@ class NovaTrainer:
         )
         pos_weight = torch.tensor([neg / pos], device=self.device)
         self.criterion = BCEWithLogitsLoss(pos_weight=pos_weight)
-        
+
         self.train_loader = self.data_module.get_train_loader()
         self.valid_loader = self.data_module.get_val_loader()
         self.test_loader = self.data_module.get_test_loader()
+
+        sample_batch = next(iter(self.train_loader)).to(self.device)
+        self.logger.graph(self.model_module.model, sample_batch)
 
     def _train_step(self, batch):
         batch = batch.to(self.device)
@@ -57,18 +60,18 @@ class NovaTrainer:
             with autocast(device_type="cuda"):
                 preds = self.model_module.model(batch).view(-1)
                 loss = self.criterion(preds, labels)
-            
+
             self.scaler.scale(loss).backward()
             self.scaler.unscale_(self.model_module.optimizer)
-            
+
             torch.nn.utils.clip_grad_norm_(self.model_module.parameters(), 2.0)
-            
+
             self.scaler.step(self.model_module.optimizer)
             self.scaler.update()
         else:
             preds = self.model_module.model(batch).view(-1)
             loss = self.criterion(preds, labels)
-            
+
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model_module.parameters(), 2.0)
             self.model_module.optimizer.step()
