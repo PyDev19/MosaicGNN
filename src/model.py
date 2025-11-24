@@ -34,12 +34,17 @@ class NovaLinkPredictor(Module):
         metadata: list,
         num_users: int,
         num_movies: int,
+        use_movie_emb: bool,
     ):
         super().__init__()
 
         self.user_emb = Embedding(num_users, hidden_channels)
-        self.movie_emb = Embedding(num_movies, hidden_channels)
         self.movie_lin = Linear(movie_feat_dim, hidden_channels)
+        
+        self.use_movie_emb = use_movie_emb
+        if use_movie_emb:
+            self.movie_emb = Embedding(num_movies, hidden_channels)
+            
 
         self.emb_dropout = Dropout(emb_dropout)
 
@@ -48,17 +53,19 @@ class NovaLinkPredictor(Module):
 
     def forward(self, data: HeteroData) -> torch.Tensor:
         user_emb = self.emb_dropout(self.user_emb(data["user"].node_id))
-        movie_emb = self.emb_dropout(self.movie_emb(data["movie"].node_id))
         movie_feat = self.movie_lin(data["movie"].x)
-
-        if movie_feat.size(0) != movie_emb.size(0):
-            full_movie_feat = torch.zeros_like(movie_emb)
-            full_movie_feat[: movie_feat.size(0)] = movie_feat
-            movie_feat = full_movie_feat
+        
+        if self.use_movie_emb:
+            movie_emb = self.emb_dropout(self.movie_emb(data["movie"].node_id))
+            
+            if movie_feat.size(0) != movie_emb.size(0):
+                full_movie_feat = torch.zeros_like(movie_emb)
+                full_movie_feat[: movie_feat.size(0)] = movie_feat
+                movie_feat = full_movie_feat
 
         x_dict = {
             "user": user_emb,
-            "movie": movie_emb + movie_feat,
+            "movie": movie_emb + movie_feat if self.use_movie_emb else movie_feat,
         }
 
         x_dict = self.gnn(x_dict, data.edge_index_dict)
