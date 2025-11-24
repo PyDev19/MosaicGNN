@@ -7,7 +7,7 @@ from model import RecommenderModelModule
 from utils import Metrics, TBLogger
 
 
-class Trainer:
+class NovaTrainer:
     def __init__(
         self,
         num_epochs: int,
