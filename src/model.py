@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Module, Linear, Embedding, Dropout
-from torch.optim import AdamW
+from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import SAGEConv, to_hetero
 from torch_geometric.data import HeteroData
@@ -29,6 +29,7 @@ class NovaLinkPredictor(Module):
         self,
         hidden_channels: int,
         dropout: float,
+        emb_dropout: float,
         movie_feat_dim: int,
         metadata: list,
         num_users: int,
@@ -40,12 +41,14 @@ class NovaLinkPredictor(Module):
         self.movie_emb = Embedding(num_movies, hidden_channels)
         self.movie_lin = Linear(movie_feat_dim, hidden_channels)
 
+        self.emb_dropout = Dropout(emb_dropout)
+
         self.gnn = NovaGNNEncoder(hidden_channels, dropout)
         self.gnn = to_hetero(self.gnn, metadata=metadata)
 
     def forward(self, data: HeteroData) -> torch.Tensor:
-        user_emb = self.user_emb(data["user"].node_id)
-        movie_emb = self.movie_emb(data["movie"].node_id)
+        user_emb = self.emb_dropout(self.user_emb(data["user"].node_id))
+        movie_emb = self.emb_dropout(self.movie_emb(data["movie"].node_id))
         movie_feat = self.movie_lin(data["movie"].x)
 
         if movie_feat.size(0) != movie_emb.size(0):
@@ -87,8 +90,8 @@ class NovaModelModule:
             num_movies=num_movies,
             metadata=metadata
         ).to(device)
-        
-        self.optimizer = AdamW(self.model.parameters(), **optimizer_config)
+
+        self.optimizer = Adam(self.model.parameters(), **optimizer_config)
         self.scheduler = ReduceLROnPlateau(self.optimizer, **scheduler_config)
 
     def parameters(self):
