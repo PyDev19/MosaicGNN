@@ -133,23 +133,22 @@ class Trainer:
         preds, labels = [], []
 
         with tqdm(
-            self.valid_loader if not test else self.train_loader,
+            self.valid_loader if not test else self.test_loader,
             desc="Validating" if not test else "Testing",
             leave=False,
         ) as pbar:
             for batch in pbar:
                 batch = batch.to(self.device)
 
-                with autocast(enabled=self.mixed_precision):
-                    pred = self.model_module.model(batch).view(-1).sigmoid().cpu()
+                pred = self.model_module.model(batch).view(-1).sigmoid().cpu()
 
                 label = batch["user", "rates", "movie"].edge_label.float().cpu()
 
-                preds.append(pred)
-                labels.append(label)
+                preds.append(pred.detach())
+                labels.append(label.detach())
 
-        preds = torch.cat(preds)
-        labels = torch.cat(labels)
+        preds = torch.cat(preds).cpu()
+        labels = torch.cat(labels).cpu()
 
         return Metrics.compute(preds, labels)
 
