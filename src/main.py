@@ -6,7 +6,7 @@ from trainer import NovaTrainer
 
 DATA_DIR = "data/"
 
-config = yaml.safe_load(open("config.yaml", "r"))
+config = yaml.safe_load(open("configs/SAGEConv_16.yaml", "r"))
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 data_module = NovaDataModule(DATA_DIR, config["dataset"], config["loader"])
@@ -32,4 +32,3 @@ nova_trainer = NovaTrainer(
 )
 
 nova_trainer.train()
-nova_trainer.save("results")
