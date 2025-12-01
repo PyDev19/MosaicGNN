@@ -17,7 +17,6 @@ model_module = NovaModelModule(
     config["optimizer"],
     config["scheduler"],
     device=device,
-    num_users=data_module.get_user_nodes(),
     num_movies=data_module.get_movie_nodes(),
     metadata=data_module.get_metadata(),
 )

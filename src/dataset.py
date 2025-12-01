@@ -25,6 +25,18 @@ class NovaDataModule:
         ratings = pd.read_csv(f"{self.data_dir}/ratings_cleaned.csv")
         movies = pd.read_csv(f"{self.data_dir}/movies_enriched_cleaned.csv")
 
+        def assign_label(r):
+            if r >= 4.0: 
+                return 1
+            elif r <= 2.5:
+                return 0
+            else:
+                return None
+
+        ratings["edge_label"] = ratings["rating"].apply(assign_label)
+        ratings = ratings.dropna(subset=["edge_label"])
+        ratings["edge_label"] = ratings["edge_label"].astype(int)
+
         unique_users = ratings["userId"].unique()
         unique_movies = ratings["movieId"].unique()
 
@@ -40,7 +52,6 @@ class NovaDataModule:
         )
 
         print("Loading overview embeddings...")
-
         overview_embeds = torch.load(
             f"{self.data_dir}/overview_embeddings.pt", map_location=self.device
         )
@@ -64,6 +75,12 @@ class NovaDataModule:
 
         data["user", "rates", "movie"].edge_index = edge_index_user_to_movie
 
+        data["user", "rates", "movie"].edge_label = torch.tensor(
+            ratings["edge_label"].values,
+            dtype=torch.float,
+            device=self.device,
+        )
+
         data = ToUndirected()(data)
 
         print("Saving processed graph data...")
@@ -82,7 +99,7 @@ class NovaDataModule:
 
         return dataset
 
-    def _split_dataset(self) -> tuple[HeteroData, HeteroData, HeteroData]:
+    def _split_dataset(self):
         print("Splitting dataset...")
 
         transform = RandomLinkSplit(
@@ -103,19 +120,18 @@ class NovaDataModule:
 
         self.train_data, self.val_data, self.test_data = self._split_dataset()
 
-    def get_metadata(self) -> list:
+    def get_metadata(self):
         return self.dataset.metadata()
-    
-    def get_user_nodes(self) -> int:
+
+    def get_user_nodes(self):
         return self.dataset["user"].num_nodes
-    
-    def get_movie_nodes(self) -> int:
+
+    def get_movie_nodes(self):
         return self.dataset["movie"].num_nodes
 
-    def get_train_loader(self) -> LinkNeighborLoader:
+    def get_train_loader(self):
         print("Preparing train data loader...")
-
-        train_loader = LinkNeighborLoader(
+        return LinkNeighborLoader(
             **self.loader_config["train"],
             data=self.train_data,
             edge_label_index=(
@@ -125,12 +141,9 @@ class NovaDataModule:
             edge_label=self.train_data["user", "rates", "movie"].edge_label,
         )
 
-        return train_loader
-
-    def get_val_loader(self) -> LinkNeighborLoader:
+    def get_val_loader(self):
         print("Preparing validation data loader...")
-
-        val_loader = LinkNeighborLoader(
+        return LinkNeighborLoader(
             **self.loader_config["val_test"],
             data=self.val_data,
             edge_label_index=(
@@ -140,12 +153,9 @@ class NovaDataModule:
             edge_label=self.val_data["user", "rates", "movie"].edge_label,
         )
 
-        return val_loader
-
-    def get_test_loader(self) -> LinkNeighborLoader:
+    def get_test_loader(self):
         print("Preparing test data loader...")
-
-        test_loader = LinkNeighborLoader(
+        return LinkNeighborLoader(
             **self.loader_config["val_test"],
             data=self.test_data,
             edge_label_index=(
@@ -154,5 +164,3 @@ class NovaDataModule:
             ),
             edge_label=self.test_data["user", "rates", "movie"].edge_label,
         )
-
-        return test_loader
