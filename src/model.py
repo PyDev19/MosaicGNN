@@ -42,8 +42,7 @@ class NovaLinkPredictor(Module):
         self.movie_lin = Linear(movie_feat_dim, hidden_channels)
         
         self.use_movie_emb = use_movie_emb
-        if use_movie_emb:
-            self.movie_emb = Embedding(num_movies, hidden_channels)
+        self.movie_emb = Embedding(num_movies, hidden_channels)
             
 
         self.emb_dropout = Dropout(emb_dropout)
