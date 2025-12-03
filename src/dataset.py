@@ -28,7 +28,7 @@ class NovaDataModule:
         ratings = ratings[ratings["rating"] >= 3.5].reset_index(drop=True)
 
         unique_users = ratings["userId"].unique()
-        unique_movies = ratings["movieId"].unique()
+        unique_movies = movies["movieId"].unique()
 
         user2idx = {uid: i for i, uid in enumerate(unique_users)}
         movie2idx = {mid: i for i, mid in enumerate(unique_movies)}
