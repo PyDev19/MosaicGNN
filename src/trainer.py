@@ -36,11 +36,6 @@ class NovaTrainer:
         self.min_delta = min_delta
         self.best_model_path = best_model_path
 
-        pos = self.data_module.train_data["user", "rates", "movie"].edge_label.sum()
-        neg = (
-            len(self.data_module.train_data["user", "rates", "movie"].edge_label) - pos
-        )
-        pos_weight = torch.tensor([neg / pos], device=self.device)
         self.criterion = BCEWithLogitsLoss()
 
         self.train_loader = self.data_module.get_train_loader()
