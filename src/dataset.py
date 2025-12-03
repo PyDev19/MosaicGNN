@@ -97,14 +97,12 @@ class NovaDataModule:
         return train_data, val_data, test_data
 
     def setup(self):
-        # self.dataset = (
-        #     self._load_dataset()
-        #     if os.path.exists(f"{self.data_dir}/graph.pt")
-        #     else self._create_dataset()
-        # )
+        self.dataset = (
+            self._load_dataset()
+            if os.path.exists(f"{self.data_dir}/graph.pt")
+            else self._create_dataset()
+        )
         
-        self.dataset = self._create_dataset()
-
         self.train_data, self.val_data, self.test_data = self._split_dataset()
 
     def get_metadata(self) -> list:

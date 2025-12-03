@@ -1,5 +1,5 @@
 import torch
-from torch.nn import Module, Linear, Embedding, Dropout, Parameter
+from torch.nn import Module, Linear, Dropout
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch_geometric.nn import SAGEConv, to_hetero
@@ -26,41 +26,24 @@ class NovaLinkPredictor(Module):
         self,
         hidden_channels: int,
         dropout: float,
-        emb_dropout: float,
         movie_feat_dim: int,
         metadata: list,
-        num_movies: int,
-        use_movie_emb: bool,
     ):
         super().__init__()
 
-        self.global_user_feature = Parameter(torch.randn(hidden_channels))
-
         self.movie_lin = Linear(movie_feat_dim, hidden_channels)
-        self.use_movie_emb = use_movie_emb
-        self.movie_emb = Embedding(num_movies, hidden_channels)
-
-        self.emb_dropout = Dropout(emb_dropout)
+        
+        self.user_init = torch.nn.Parameter(torch.zeros(hidden_channels), requires_grad=False)
 
         self.gnn = NovaGNNEncoder(hidden_channels, dropout)
         self.gnn = to_hetero(self.gnn, metadata=metadata)
 
     def forward(self, data: HeteroData):
-        user_emb = self.global_user_feature.unsqueeze(0).repeat(
+        user_emb = self.user_init.unsqueeze(0).repeat(
             data["user"].node_id.size(0), 1
         )
 
-        movie_feat = self.movie_lin(data["movie"].x)
-
-        if self.use_movie_emb:
-            movie_emb = self.emb_dropout(self.movie_emb(data["movie"].node_id))
-            if movie_feat.size(0) != movie_emb.size(0):
-                fixed = torch.zeros_like(movie_emb)
-                fixed[: movie_feat.size(0)] = movie_feat
-                movie_feat = fixed
-            movie_x = movie_emb + movie_feat
-        else:
-            movie_x = movie_feat
+        movie_x = self.movie_lin(data["movie"].x)
 
         x_dict = {
             "user": user_emb,
@@ -69,8 +52,9 @@ class NovaLinkPredictor(Module):
 
         x_dict = self.gnn(x_dict, data.edge_index_dict)
 
-        user_edges = data["user", "rates", "movie"].edge_label_index[0]
-        movie_edges = data["user", "rates", "movie"].edge_label_index[1]
+        edge_label_index = data[("user", "rates", "movie")].edge_label_index
+        user_edges = edge_label_index[0]
+        movie_edges = edge_label_index[1]
 
         edge_feat_user = x_dict["user"][user_edges]
         edge_feat_movie = x_dict["movie"][movie_edges]
@@ -85,13 +69,11 @@ class NovaModelModule:
         optimizer_config: dict,
         scheduler_config: dict,
         device: torch.device,
-        num_movies: int,
         metadata: list,
     ):
         self.model = NovaLinkPredictor(
             **model_config,
-            num_movies=num_movies,
-            metadata=metadata
+            metadata=metadata,
         ).to(device)
 
         self.optimizer = Adam(self.model.parameters(), **optimizer_config)
